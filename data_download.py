@@ -86,3 +86,6 @@ def ols(size=1000):
 
     J = 1
     F = (ee_constrained - ee) / J / (ee / (n-K))
+
+
+
