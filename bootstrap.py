@@ -1,32 +1,47 @@
 import statsmodels.formula.api as smf
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def main():
-    # true model: y = 2 * x + eps
-    # x ~ N(0, 1)
-    # eps ~ N(0, 0.1)
+    N = 100  # sample size
+    bs_N = 1000  # bootstrap sample size
 
-    # generate training set
-    N = 1000
-    bs_N = 10000
-    beta = 2
+    # generate sample
     dat = pd.DataFrame({
-        'x': np.random.normal(0, 1, N),
-        'eps': np.random.normal(0, 0.1, N)
+        'x': np.random.uniform(low=0, high=1, size=N),
+        'eps': np.random.normal(0, 0.3, size=N)
     })
-    dat['y'] = beta * dat['x'] + dat['eps']
+    dat['y'] = (1 - dat['x'] ** 2) ** 0.5 + dat['eps']
+
+    se = univariate_bootstrap(dat=dat, N=N, bs_N=bs_N)
+
+    # observe that correlation between ols and pbs is very high (they should be asymptotically
+    # identical!)
+    print(se.corr())
+
+
+def univariate_bootstrap(dat, N, bs_N):
+    """
+    computes boostrapped standard errors of a univariate linear regression model
+    :param dat: DataFrame; must have 'x' and 'y' columns
+    :return: DataFrame; standard errors using specified model, parametric bootstrap,
+    non-parametric bootsrap
+    """
+    # plot raw data
+    plt.scatter(dat['x'], dat['y'], marker='.', color='grey')
 
     # ols
     model = smf.ols('y ~ x', data=dat)
     ols_result = model.fit()
-
-    beta_hat = ols_result.params
-    var_beta = ols_result.cov_params().loc['x', 'x']
+    var_beta = ols_result.cov_params()
     sigma_hat = ols_result.mse_resid ** 0.5
-    fitted_se_ols = dat['x'].abs() * var_beta ** 0.5
+    x_matrix = pd.DataFrame({'x': dat['x'], 'Intercept': 1})
+    fitted_se_ols = pd.Series({ind: x_matrix.loc[ind,:].dot(var_beta).dot(x_matrix.loc[ind,:])
+                               for ind in x_matrix.index}).pow(0.5)
     fitted_y = ols_result.fittedvalues
+    plt.plot(dat['x'], fitted_y)
 
     # parametric bootstrap
     fitted_y_parametric_bootstrap = pd.DataFrame()
@@ -41,22 +56,26 @@ def main():
         fitted_y_parametric_bootstrap[sample] = model_parametric_bootstrap.fit().fittedvalues
     fitted_y_parambs = fitted_y_parametric_bootstrap.mean(1)
     fitted_se_parambs = fitted_y_parametric_bootstrap.std(1)
+    plt.plot(dat['x'], fitted_y + 2 * fitted_se_parambs, color='blue')
+    plt.plot(dat['x'], fitted_y - 2 * fitted_se_parambs, color='blue')
+
 
     # non-parametric bootstrap
     fitted_ys = pd.DataFrame()
     for sample in range(bs_N):
         draws = np.random.choice(dat.index, size=N, replace=True)
-        dat_npbs = dat.ix[draws]
+        dat_npbs = dat.loc[draws, :]
         model_npbs = smf.ols('y ~ x', data=dat_npbs)
         fitted_ys[sample] = model_npbs.fit().predict(exog=dat)
     fitted_y_npbs = fitted_ys.mean(1)
     fitted_se_npbs = fitted_ys.std(1)
+    plt.plot(dat['x'], fitted_y + 2 * fitted_se_npbs, color='green')
+    plt.plot(dat['x'], fitted_y - 2 * fitted_se_npbs, color='green')
+    plt.show()
 
-    df = pd.DataFrame({
-        'ols mean': fitted_y,
-        'ols se': fitted_se_ols,
-        'pbs mean': fitted_y_parambs,
-        'pbs se': fitted_se_parambs,
-        'npbs mean': fitted_y_npbs,
-        'npbs se': fitted_se_npbs
+    se = pd.DataFrame({
+        'ols': fitted_se_ols,
+        'pbs': fitted_se_parambs,
+        'npbs': fitted_se_npbs
     })
+    return se
