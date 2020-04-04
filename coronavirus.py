@@ -18,6 +18,16 @@ def load():
 
 
 def plot_total(usa_total, region_label):
+    print('===Latest snapshot for ' + region_label + ' as of ' + usa_total.last_valid_index().strftime('%Y-%m-%d') +
+          '===')
+    snapshot = usa_total.iloc[-1, :]
+    print('Total positive = ' + str(snapshot['positive']))
+    print('Total tested = ' + str(snapshot['posNeg']))
+    print('Death rate = ' + str(round(snapshot['death'] / snapshot['positive'], 3)))
+    print('Hospitalization rate = ' + str(round(snapshot['hospitalizedCumulative'] / snapshot['positive'], 3)))
+    print('ICU rate = ' + str(round(snapshot['inIcuCumulative'] / snapshot['positive'], 3)))
+    print('Ventilator rate = ' + str(round(snapshot['onVentilatorCumulative'] / snapshot['positive'], 3)))
+
     fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(8, 24))
     date_format = mdates.DateFormatter('%m-%d')
 
@@ -51,7 +61,6 @@ def main():
     df = load()
     usa_total = df.groupby('date').sum().replace(0.0, nan)
     ny_total = df[df.state == 'NY'].groupby('date').sum().replace(0.0, nan)
-    print('Note: data is updated thru ' + usa_total.last_valid_index().strftime('%Y-%m-%d'))
     plot_total(usa_total, 'USA')
     plot_total(ny_total, 'NY State')
 
