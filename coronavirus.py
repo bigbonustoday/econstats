@@ -61,8 +61,10 @@ def main():
     df = load()
     usa_total = df.groupby('date').sum().replace(0.0, nan)
     ny_total = df[df.state == 'NY'].groupby('date').sum().replace(0.0, nan)
+    ca_total = df[df.state == 'CA'].groupby('date').sum().replace(0.0, nan)
     plot_total(usa_total, 'USA')
     plot_total(ny_total, 'NY State')
+    plot_total(ca_total, 'CA State')
 
 
 if __name__ == "__main__":
